@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GREENMINE — Espace de travail</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+<link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/components.css"><link rel="stylesheet" href="css/responsive.css">
+</head><body>
+<div class="app">
+
+<aside class="side">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">G</div>
+    <div><b>GREENMINE</b><small>Intelligence environnementale</small></div>
+  </div>
+  <nav class="nav" id="nav" aria-label="Navigation principale">
+    <button data-go="dashboard" aria-current="page"><span class="ico">▦</span><span>Tableau de bord</span><span class="badge" id="navSites">0</span></button>
+    <button data-go="diagnostic"><span class="ico">1</span><span>Site et micro-zones</span></button>
+    <button data-go="donnees"><span class="ico">2</span><span>Images du site</span></button>
+    <button data-go="cartographie"><span class="ico">3</span><span>Carte de priorisation</span></button>
+    <button data-go="laboratoire"><span class="ico">4</span><span>Analyses de laboratoire</span></button>
+    <button data-go="plan"><span class="ico">5</span><span>Plan de réhabilitation</span></button>
+    <button data-go="rapport"><span class="ico">6</span><span>Rapport final</span></button>
+    <button data-go="classes"><span class="ico">◱</span><span>Référentiel A–E</span></button>
+    <button data-go="tec"><span class="ico">⚙</span><span>GREENMINE TeC</span></button>
+    <button data-go="budget"><span class="ico">₣</span><span>Chiffrage</span></button>
+    <button data-go="suivi"><span class="ico">↻</span><span>Suivi M0 → M12</span></button>
+  </nav>
+  <div class="sidefoot"><a href="index.html">← Site GREENMINE</a>Prototype : données conservées dans ce navigateur. Le traitement géospatial (NDVI, polygones) suppose un serveur.</div>
+</aside>
+
+<main class="main" id="main">
+<header class="top">
+  <div class="crumb">GREENMINE / <strong id="crumb">Tableau de bord</strong></div>
+  <div class="ctx">
+    <span class="chip" id="currentSite">Aucun site sélectionné</span>
+    <button class="btn sm ghost" onclick="exportProject()">Exporter</button>
+    <button class="btn sm ghost" onclick="document.getElementById('importFile').click()">Importer</button>
+    <input id="importFile" type="file" accept="application/json,.json" style="display:none">
+  </div>
+</header>
+
+<div class="content">
+<div id="stepbar" class="stepbar"></div>
+
+<!-- ================= TABLEAU DE BORD ================= -->
+<section id="dashboard" class="section active" aria-label="Tableau de bord">
+  <div class="hero">
+    <div>
+      <h1>Où intervenir en priorité, et avec quel budget ?</h1>
+      <p>Un site minier dégradé n'est jamais homogène. GREENMINE le découpe en micro-zones homogènes d'intervention, attribue à chacune une classe A–E et un itinéraire technique, puis chiffre l'ensemble.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="loadDemo()">Charger un site de démonstration (données fictives)</button>
+      <button class="btn primary" onclick="newSite()">Nouveau site</button>
+    </div>
+  </div>
+
+  <div class="grid4">
+    <div class="card kpi"><small>Sites suivis</small><strong id="kSites">0</strong><span id="kZones">aucune micro-zone</span></div>
+    <div class="card kpi"><small>Surface diagnostiquée</small><strong id="kArea">—</strong><span>hectares</span></div>
+    <div class="card kpi"><small>Surface en priorité 1</small><strong id="kP1">—</strong><span>intervention immédiate</span></div>
+    <div class="card kpi"><small>Budget indicatif total</small><strong id="kBudget">—</strong><span>millions FCFA, fourchette basse</span></div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>Portefeuille de sites</h2>
+      <div class="sub">Cliquez sur une ligne pour ouvrir le site.</div>
+      <div class="scroll-x" id="siteTable"><div class="empty">Aucun site. Créez un site ou chargez la démonstration.</div></div>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn sm" onclick="exportCSV()">Télécharger les zones (CSV)</button>
+        <button class="btn sm danger" onclick="clearAll()">Vider le portefeuille</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Lire un diagnostic</h2>
+      <div class="sub">Trois informations distinctes, une par question du dossier projet.</div>
+      <dl class="dl">
+        <dt>Priorité 1 à 4</dt><dd>l'urgence, donc l'ordre d'engagement des travaux.</dd>
+        <dt>Classe A à E</dt><dd>la nature de la dégradation, donc l'itinéraire technique TeC.</dd>
+        <dt>Chiffrage</dt><dd>le coût indicatif de cet itinéraire sur la surface concernée.</dd>
+      </dl>
+      <div class="notice" style="margin-top:14px"><b>Le cœur de la méthode :</b> une zone moyennement dégradée mais contaminée aux métaux est en classe B. Son urgence est modérée, mais son itinéraire n'a rien à voir avec celui d'une zone simplement érodée — et son coût non plus.</div>
+      <h3>Répartition des surfaces par classe</h3>
+      <div id="globalShares"><div class="empty">Aucune zone diagnostiquée.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DIAGNOSTIC ================= -->
+<section id="diagnostic" class="section" aria-label="Diagnostic et zonation">
+  <div class="hero">
+    <div>
+      <h1>Diagnostic et micro-zonation</h1>
+      <p>Décrivez le site une fois, puis ajoutez ses micro-zones une par une. Laissez vide ce que vous n'avez pas mesuré : les champs vides sont exclus du calcul, jamais comptés comme des zéros.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="newSite()">Nouveau site</button>
+      <button class="btn primary" onclick="saveZone()" id="saveZoneBtn">Enregistrer la micro-zone</button>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>1. Le site</h2>
+      <div class="sub">Renseigné une seule fois, commun à toutes les micro-zones.</div>
+      <div class="form">
+        <div class="field full"><label for="siteName">Nom du site</label><input id="siteName" placeholder="Ancien site aurifère de Bouaflé" oninput="touchSite()"></div>
+        <div class="field"><label for="mineType">Type d'exploitation</label>
+          <select id="mineType" onchange="touchSite()">
+            <option>Mine d'or</option><option>Orpaillage artisanal</option>
+            <option>Carrière de granulats</option><option>Exploitation de manganèse</option><option>Autre</option>
+          </select></div>
+        <div class="field"><label for="operator">Exploitant ou commanditaire <span class="opt">(facultatif)</span></label><input id="operator" placeholder="Nom de la structure" oninput="touchSite()"></div>
+        <div class="field"><label for="openPit">Mine à ciel ouvert ?</label><select id="openPit" onchange="touchSite()"><option>Oui</option><option>Non</option><option>Ne sait pas</option></select></div>
+        <div class="field"><label for="lat">Latitude du site</label><input id="lat" type="number" step="any" placeholder="6.989" aria-describedby="latErr" oninput="touchSite()"><div class="err" id="latErr">Valeur attendue entre -90 et 90.</div></div>
+        <div class="field"><label for="lon">Longitude du site</label><input id="lon" type="number" step="any" placeholder="-5.751" aria-describedby="lonErr" oninput="touchSite()"><div class="err" id="lonErr">Valeur attendue entre -180 et 180.</div></div>
+        <div class="field"><label for="radius">Rayon d'emprise affiché (m)</label><input id="radius" type="number" min="10" max="20000" value="700" oninput="touchSite()"></div>
+        <div class="field"><label for="closure">Année de fermeture prévue <span class="opt">(facultatif)</span></label><input id="closure" type="number" min="1950" max="2100" placeholder="2027" oninput="touchSite()"></div>
+        <div class="field full"><label for="history">Historique et observations de terrain</label><textarea id="history" rows="3" placeholder="Fosses ouvertes, haldes de stériles, bassins de lavage, pistes de roulage, ravines, bas-fonds cultivés en aval..." oninput="touchSite()"></textarea></div>
+      </div>
+      <div class="actions" style="margin-top:12px"><button class="btn primary" onclick="saveSite()">Enregistrer le site</button> <button class="btn" onclick="locate()">Voir le site sur la carte</button></div>
+    </div>
+
+    <div class="card">
+      <h2>2. La micro-zone</h2>
+      <div class="sub" id="zoneFormTitle">Nouvelle micro-zone. Chaque zone est diagnostiquée et chiffrée séparément.</div>
+      <div class="form">
+        <div class="field"><label for="zName">Désignation</label><input id="zName" placeholder="Fosse principale"></div>
+        <div class="field"><label for="zKind">Nature de la zone</label>
+          <select id="zKind">
+            <option>Fosse et abords</option><option>Halde de stériles</option><option>Aire de traitement ou de lavage</option>
+            <option>Piste de roulage</option><option>Zone de dépôt de résidus</option><option>Zone périphérique</option><option>Autre</option>
+          </select></div>
+        <div class="field"><label for="zArea">Surface (m²)</label><input id="zArea" type="number" min="1" placeholder="4000"></div>
+        <div class="field"><label for="zSlope">Pente moyenne (%) <span class="opt">(contexte)</span></label><input id="zSlope" type="number" min="0" max="100" placeholder="12"></div>
+        <div class="field"><label for="zLat">Latitude de la zone <span class="opt">(facultatif)</span></label><input id="zLat" type="number" step="any" placeholder="reprend le site si vide"></div>
+        <div class="field"><label for="zLon">Longitude de la zone <span class="opt">(facultatif)</span></label><input id="zLon" type="number" step="any" placeholder="reprend le site si vide"></div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button class="btn sm" onclick="startPick()" id="pickBtn">Pointer la zone sur la carte</button>
+        <button class="btn sm ghost" onclick="clearZoneForm()">Vider le formulaire</button>
+      </div>
+
+      <h3>Indicateurs mesurés</h3>
+      <div class="form c3" id="indicatorForm"></div>
+
+      <h3>Métaux lourds (mg/kg de sol sec)</h3>
+      <div class="sub" style="margin-bottom:10px">Si ces teneurs sont renseignées, elles remplacent l'estimation manuelle du risque de contamination.</div>
+      <div class="form c4" id="metalForm"></div>
+      <div id="metalNote" class="notice" style="margin-top:12px">Aucune teneur saisie. Le risque de contamination sera pris tel que vous l'estimez ci-dessus.</div>
+
+      <h3>Indices de télédétection complémentaires</h3>
+      <div class="form c3">
+        <div class="field"><label for="zMndwi">MNDWI (eau) <span class="opt">(contexte)</span></label><input id="zMndwi" type="number" step="0.01" min="-1" max="1" placeholder="-0.35"></div>
+        <div class="field"><label for="zNdti">NDTI (sols nus) <span class="opt">(contexte)</span></label><input id="zNdti" type="number" step="0.01" min="-1" max="1" placeholder="0.18"></div>
+        <div class="field"><label for="zHumidity">Humidité du sol (%) <span class="opt">(contexte)</span></label><input id="zHumidity" type="number" min="0" max="100" placeholder="26"></div>
+      </div>
+      <div class="notice" id="completenessNote" style="margin-top:14px">Renseignez au moins trois indicateurs pour obtenir un diagnostic exploitable.</div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>3. Micro-zones du site</h2>
+      <div class="sub" id="zoneListSub">Aucun site en cours.</div>
+      <div class="scroll-x" id="zoneTable"><div class="empty">Aucune micro-zone enregistrée.</div></div>
+      <h3>Synthèse du site</h3>
+      <div id="siteSynth"><div class="empty">La synthèse apparaît dès la première zone enregistrée.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>4. Documents</h2>
+      <div class="sub">Photos drone, photos terrain, orthomosaïques, bulletins d'analyse.</div>
+      <div id="drop" class="upload">
+        <input id="files" type="file" multiple accept="image/*,.tif,.tiff,.geotiff,.csv,.xlsx,.pdf">
+        <b>Déposez vos fichiers ici</b>
+        <div class="sub" style="margin:4px 0 12px">JPG, PNG, TIFF, CSV, XLSX, PDF</div>
+        <button class="btn" type="button" onclick="document.getElementById('files').click()">Choisir des fichiers</button>
+      </div>
+      <div id="fileList" class="files"></div>
+      <div id="thumbs" class="thumbs"></div>
+      <div class="footerNote">Les fichiers restent dans votre navigateur. Le calcul du NDVI, du MNDWI et du NDTI à partir des bandes Sentinel-2 ou d'un GeoTIFF drone suppose un moteur géospatial côté serveur : ici, ces indices se saisissent.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CARTE ================= -->
+<section id="cartographie" class="section" aria-label="Carte de priorisation">
+  <div class="hero">
+    <div><h1>Carte de priorisation</h1><p>Micro-zones colorées par niveau de priorité de réhabilitation. Représentation schématique tant qu'aucune couche SIG réelle n'est importée.</p></div>
+    <div class="actions">
+      <button class="btn" onclick="fitAll()">Cadrer</button><input id="geoFile" type="file" accept=".geojson,.json" hidden><button class="btn" onclick="document.getElementById('geoFile').click()">Importer des couches SIG (GeoJSON)</button>
+      <button class="btn primary" onclick="downloadMap()">Exporter la carte en image</button>
+    </div>
+  </div>
+  <div class="card"><div id="mapMain" class="map" style="height:600px"></div></div>
+  <div class="card" style="margin-top:15px">
+    <div id="mapLegend" class="sub" style="margin:0 0 8px"></div>
+    <div id="baseNote" class="sub" style="margin:0;color:var(--muted-2)"></div>
+  </div>
+</section>
+
+<!-- ================= DONNEES ================= -->
+<section id="donnees" class="section" aria-label="Images du site">
+  <div class="hero"><div><h1>Étape 2 — Images réelles du site</h1><p>Importez les images du site en indiquant leur source. Elles sont conservées avec le projet ; aucune image générique n'est utilisée.</p></div></div>
+  <div class="card"><div class="form c3"><div class="field"><label for="imgSource">Source de l'image</label><select id="imgSource"><option>Photo téléphone</option><option>Image drone</option><option>Image satellitaire</option></select></div>
+  <div class="field" style="grid-column:span 2"><label for="imgFile">Image(s)</label><input id="imgFile" type="file" accept="image/*" multiple></div></div>
+  <div id="imgGrid" class="thumbs" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"></div>
+  <div class="footerNote">Les images de drone serviront de données d'entrée à la future restitution cartographique ; aucun traitement de télédétection n'est exécuté dans ce prototype.</div></div>
+  <div class="card" style="margin-top:15px"><h2>Documents</h2><div class="scroll-x" id="dataCenter"><div class="empty">Aucun fichier importé.</div></div></div>
+</section>
+
+<!-- ================= CLASSES ================= -->
+<section id="classes" class="section" aria-label="Référentiel des classes">
+  <div class="hero"><div><h1>Référentiel des classes A–E</h1><p>Le tableau de micro-zonation du dossier projet, rendu opérationnel : à chaque classe, un itinéraire technique, des espèces et un poste de dépense.</p></div></div>
+  <div id="classCards" class="three"></div>
+  <div class="card" style="margin-top:15px">
+    <h2>Règles de classement</h2>
+    <div class="sub">Appliquées dans cet ordre, sur les valeurs mesurées de la zone. Elles sont lisibles et discutables, ce qui les rend défendables devant un client ou une administration.</div>
+    <div class="scroll-x"><table class="table" id="rulesTable"></table></div>
+  </div>
+  <div class="card" style="margin-top:15px">
+    <h2>Valeurs guides utilisées pour les métaux</h2>
+    <div class="sub">Valeurs indicatives pour un usage agricole, servant de base au quotient de contamination. Elles doivent être confrontées aux exigences du laboratoire et de l'autorité compétente avant tout usage réglementaire.</div>
+    <div class="scroll-x"><table class="table" id="metalRef"></table></div>
+  </div>
+</section>
+
+<!-- ================= TEC ================= -->
+<section id="tec" class="section" aria-label="GREENMINE TeC">
+  <div class="hero"><div><h1>GREENMINE TeC</h1><p>Traduction du diagnostic en opérations de terrain, zone par zone, avec espèces, quantités et horizon de réalisation.</p></div>
+  <button class="btn primary" onclick="go('budget')">Voir le chiffrage</button></div>
+  <div class="card"><h2>Ordre d'engagement</h2><div class="sub" id="tecIntro">Aucun site sélectionné.</div><div id="tecZones" class="stack"></div></div>
+  <div class="card" style="margin-top:15px"><h2>Points de vigilance</h2><div class="sub">À lever avant l'engagement des travaux.</div><div id="tecWatch"><div class="empty">Aucun diagnostic.</div></div></div>
+</section>
+
+<!-- ================= BUDGET ================= -->
+<section id="budget" class="section" aria-label="Chiffrage">
+  <div class="hero"><div><h1>Chiffrage indicatif</h1><p>Extrapolé du budget de pré-faisabilité de la parcelle pilote de 1 000 m², modulé par classe et corrigé de l'effet d'échelle.</p></div></div>
+  <div class="card"><h2>Par micro-zone</h2><div class="sub" id="budgetIntro">Aucun site sélectionné.</div><div class="scroll-x" id="budgetZones"></div></div>
+  <div class="card" style="margin-top:15px"><h2>Détail des postes</h2><div class="sub">Cumul de toutes les micro-zones du site.</div><div class="scroll-x" id="budgetDetail"></div>
+    <div class="notice warn" style="margin-top:14px">Ces montants sont des ordres de grandeur de pré-faisabilité, en francs CFA courants. Ils n'intègrent ni le terrassement lourd par engins, ni les études réglementaires, ni la TVA, ni les aléas. Un devis d'entreprise reste indispensable. Les postes de prélèvement et d'analyses sont ici proportionnels à la surface ; leur coût réel dépend du nombre d'échantillons et doit être chiffré sur devis du laboratoire.</div></div>
+</section>
+
+<!-- ================= SUIVI ================= -->
+<section id="suivi" class="section" aria-label="Suivi">
+  <div class="hero"><div><h1>Suivi M0 → M3 → M6 → M12</h1><p>Campagnes de contrôle après travaux, comparées à l'état initial du site.</p></div></div>
+  <div class="two">
+    <div class="card">
+      <h2>Campagnes</h2>
+      <div class="sub" id="followIntro">Aucun site sélectionné.</div>
+      <div class="scroll-x"><table class="table"><thead><tr><th>Campagne</th><th>Date</th><th class="num">NDVI</th><th class="num">Survie</th><th class="num">Hauteur</th><th class="num">pH</th><th class="num">Écart NDVI</th><th></th></tr></thead><tbody id="followups"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>Ajouter une campagne</h2>
+      <div class="sub">Relevés d'une visite de contrôle ou d'un vol drone.</div>
+      <div class="form">
+        <div class="field"><label for="fLabel">Intitulé</label><input id="fLabel" placeholder="Mois 3"></div>
+        <div class="field"><label for="fDate">Date</label><input id="fDate" type="date"></div>
+        <div class="field"><label for="fNdvi">NDVI moyen</label><input id="fNdvi" type="number" step="0.01" min="-1" max="1" placeholder="0.32"></div>
+        <div class="field"><label for="fSurv">Taux de survie (%)</label><input id="fSurv" type="number" min="0" max="100" placeholder="78"></div>
+        <div class="field"><label for="fHeight">Hauteur moyenne (cm)</label><input id="fHeight" type="number" min="0" placeholder="45"></div>
+        <div class="field"><label for="fPh">pH</label><input id="fPh" type="number" step="0.1" min="0" max="14" placeholder="5.8"></div>
+        <div class="field full"><label for="fNote">Observation</label><input id="fNote" placeholder="Reprise correcte du vétiver, regarnissage nécessaire en bordure est"></div>
+      </div>
+      <div class="actions" style="margin-top:12px"><button class="btn primary" onclick="addFollowup()">Enregistrer la campagne</button></div>
+      <h3>Évolution du NDVI</h3>
+      <svg class="spark" id="spark" viewBox="0 0 320 90" preserveAspectRatio="none" role="img" aria-label="Courbe d'évolution du NDVI"></svg>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RAPPORT ================= -->
+<section id="rapport" class="section" aria-label="Rapport">
+  <div class="hero">
+    <div><h1>Rapport</h1><p>Synthèse complète du site, prête à imprimer ou à enregistrer en PDF.</p></div>
+    <div class="actions">
+      <div class="field" style="min-width:220px"><label for="author">Signataire</label><input id="author" placeholder="Nom, fonction" oninput="renderReport()"></div>
+      <button class="btn primary" onclick="printReport()">Imprimer ou enregistrer en PDF</button>
+    </div>
+  </div>
+  <div id="report" class="report"><h2>GREENMINE — rapport de diagnostic</h2><p class="muted">Enregistrez au moins une micro-zone pour générer le rapport.</p></div>
+</section>
+
+<section id="laboratoire" class="section" aria-label="Analyses de laboratoire">
+  <div class="hero"><div><h1>Étape 4 — Analyses de laboratoire</h1><p>Après la carte de priorisation, prélevez sur la zone rouge, puis saisissez ici les résultats. Ils sont appliqués au diagnostic de la zone et alimentent le plan.</p></div></div>
+  <div class="two"><div class="card"><h2>Résultats du laboratoire</h2><div class="sub">Seules les valeurs réellement mesurées sont à renseigner.</div><div id="labTable"></div></div>
+  <div class="card"><h2>Ajouter des résultats</h2><div class="form">
+    <div class="field full"><label for="lz">Zone échantillonnée</label><select id="lz"></select></div>
+    <div class="field"><label for="ld">Date</label><input id="ld" type="date"></div><div class="field"><label for="ll">Laboratoire</label><input id="ll"></div>
+    <div class="field full"><label for="lr">Référence échantillon</label><input id="lr"></div>
+    <div class="field"><label for="lph">pH</label><input id="lph" type="number" step="0.1"></div><div class="field"><label for="las">As (mg/kg)</label><input id="las" type="number" step="0.01"></div>
+    <div class="field"><label for="lhg">Hg (mg/kg)</label><input id="lhg" type="number" step="0.01"></div><div class="field"><label for="lpb">Pb (mg/kg)</label><input id="lpb" type="number" step="0.01"></div>
+    <div class="field"><label for="lcd">Cd (mg/kg)</label><input id="lcd" type="number" step="0.01"></div></div>
+  <div class="actions" style="margin-top:12px"><button class="btn primary" onclick="saveLab()">Enregistrer et appliquer</button></div></div></div>
+</section>
+<section id="plan" class="section" aria-label="Plan de réhabilitation">
+  <div class="hero"><div><h1>Étape 5 — Plan de réhabilitation</h1><p>Généré à partir du site, des zones, des images, des résultats de laboratoire et du moteur de règles.</p></div><div class="actions"><button class="btn primary" onclick="go('rapport')">Rapport final</button></div></div>
+  <div class="card"><div id="planOut" class="report" style="border:0;padding:0;box-shadow:none"></div></div>
+</section>
+</div></main></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
+<script src="js/data.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/diagnostic.js"></script>
+<script src="js/budget.js"></script>
+<script src="js/cartographie.js"></script>
+<script src="js/suivi.js"></script>
+<script src="js/rapport.js"></script>
+<script src="js/images.js"></script>
+<script src="js/laboratoire.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/app.js"></script>
+</body></html>

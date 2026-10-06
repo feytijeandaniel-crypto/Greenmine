@@ -1,0 +1,9 @@
+/* GREENMINE — adaptations tablette et mobile */
+@media(max-width:1080px){.two{grid-template-columns:1fr}.three,.g3{grid-template-columns:1fr 1fr}.form.c4,.form.c3{grid-template-columns:1fr 1fr}.g4{grid-template-columns:1fr 1fr}.split{grid-template-columns:1fr;gap:32px}}
+@media(max-width:780px){
+ .app{flex-direction:column}.side{position:sticky;top:0;z-index:30;width:100%;height:auto;flex:none;flex-direction:row;align-items:center;padding:10px 12px}
+ .side .sidefoot,.brand small{display:none}.nav{display:flex;overflow-x:auto;flex:1}.nav button{white-space:nowrap;width:auto;padding:8px 12px}
+ .top{position:static;padding:10px 16px}.content{padding:16px}.grid4,.three,.g3{grid-template-columns:1fr 1fr}.sec{padding:64px 0}
+ .nav-pill nav{display:none;position:absolute;top:60px;left:0;right:0;background:var(--ink);border-radius:var(--r);padding:16px;flex-direction:column;margin:0}.nav-pill nav.open{display:flex}
+ #burger{display:block;margin-left:auto}.nav-pill>.btn{display:none}}
+@media(max-width:560px){.form,.form.c3,.form.c4,.g2,.g3,.g4,.grid4,.three{grid-template-columns:1fr}.thumbs{grid-template-columns:1fr 1fr}.report{padding:18px}.wrap{padding:0 18px}}
