@@ -97,24 +97,55 @@ function importGeo(file){
   }catch(e){ toast('GeoJSON illisible. Propriété "type" conseillée : mine, hydro, zone.',true); } };
   r.readAsText(file);
 }
+/* Grille de priorité : score de chaque cellule interpolé (pondération par l'inverse du carré de la distance)
+   à partir des micro-zones saisies. Ce n'est PAS une analyse d'image. Découpée par le polygone « mine » du GeoJSON si importé. */
+function priorityGrid(s){
+  const zs=s.zones.filter(z=>Number.isFinite(z.lat));
+  if(!zs.length) return null;
+  const lo0=zs[0].lon, la0=zs[0].lat, k=Math.cos(la0*Math.PI/180)*111320, K=111320;
+  const P=zs.map(z=>({z,n:s.zones.indexOf(z)+1,x:(z.lon-lo0)*k,y:(z.lat-la0)*K,r:Math.sqrt(Math.max(z.area||500,1))/2}));
+  const polys=[];
+  if(s.geo){ (s.geo.type==='FeatureCollection'?s.geo.features:[s.geo]).forEach(f=>{
+    if(!f||!f.geometry||!/mine|miniere|emprise/i.test(String((f.properties||{}).type||''))) return;
+    const g=f.geometry; (g.type==='Polygon'?[g.coordinates]:g.type==='MultiPolygon'?g.coordinates:[]).forEach(p=>polys.push(p[0])); }); }
+  const inPoly=(lo,la)=>polys.some(r=>{ let c=false; for(let i=0,j=r.length-1;i<r.length;j=i++){ const xi=r[i][0],yi=r[i][1],xj=r[j][0],yj=r[j][1];
+    if((yi>la)!==(yj>la)&&lo<(xj-xi)*(la-yi)/(yj-yi)+xi) c=!c; } return c; });
+  let X0,X1,Y0,Y1;
+  if(polys.length){ const pts=[].concat.apply([],polys).map(q=>[(q[0]-lo0)*k,(q[1]-la0)*K]);
+    X0=Math.min(...pts.map(q=>q[0]));X1=Math.max(...pts.map(q=>q[0]));Y0=Math.min(...pts.map(q=>q[1]));Y1=Math.max(...pts.map(q=>q[1])); }
+  else { const m=o=>Math.max(o.r*2,.55*(P.length>1?P.reduce((t,u)=>t+Math.min(...P.filter(q=>q!==u).map(q=>Math.hypot(u.x-q.x,u.y-q.y))),0)/P.length:0));
+    X0=Math.min(...P.map(o=>o.x-m(o)));X1=Math.max(...P.map(o=>o.x+m(o)));Y0=Math.min(...P.map(o=>o.y-m(o)));Y1=Math.max(...P.map(o=>o.y+m(o))); }
+  /* Sans polygone importé : rayon d'inclusion = au moins la moitié de l'écart moyen entre zones voisines, pour une carte continue. */
+  const gap=P.length>1?P.reduce((t,o)=>t+Math.min(...P.filter(q=>q!==o).map(q=>Math.hypot(o.x-q.x,o.y-q.y))),0)/P.length:0;
+  const cs=Math.max(12,Math.max(X1-X0,Y1-Y0)/24), cells=[];
+  for(let x=X0;x<X1;x+=cs) for(let y=Y0;y<Y1;y+=cs){
+    const cx=x+cs/2, cy=y+cs/2;
+    if(polys.length?!inPoly(lo0+cx/k,la0+cy/K):!P.some(o=>Math.hypot(cx-o.x,cy-o.y)<=Math.max(o.r*2,gap*.55))) continue;
+    let sw=0,ss=0; P.forEach(o=>{ const w=1/(Math.pow(Math.hypot(cx-o.x,cy-o.y),2)+Math.pow(o.r*.5,2)); sw+=w; ss+=w*o.z.diag.score; });
+    const sc=Math.round(ss/sw);
+    cells.push({x0:x,x1:x+cs,y0:y,y1:y+cs,score:sc,prio:sc>=75?1:sc>=55?2:sc>=40?3:4,
+      b:[[la0+y/K,lo0+x/k],[la0+(y+cs)/K,lo0+(x+cs)/k]]});
+  }
+  return {cells,zones:P,clipped:polys.length>0};
+}
 function renderMap(){
   if(!state.map) return;
   state.layerSites.clearLayers(); state.layerZones.clearLayers();
   state.sites.forEach(s=>{
     if(Number.isFinite(s.lat)) L.marker([s.lat,s.lon]).bindPopup('<b>'+esc(s.name)+'</b><br>'+s.zones.length+' micro-zone(s)').addTo(state.layerSites);
     if(s.geo) L.geoJSON(s.geo,{style:geoStyle}).addTo(state.layerSites);
-    s.zones.forEach(z=>{
-      if(!Number.isFinite(z.lat)) return;
-      const col=PRIO_COL[z.diag.priority];
-      L.rectangle(zoneBounds(z),{color:'#fff',weight:1.5,fillColor:col,fillOpacity:.65})
-        .bindTooltip(esc(z.label)+' — P'+z.diag.priority)
-        .bindPopup('<b>'+esc(z.label)+'</b><br>'+PRIO_TXT[z.diag.priority]+'<br>Classe '+z.diag.cls+' — score '+z.diag.score+'/100<br>'+(Number.isFinite(z.area)?nf(z.area)+' m²':'')).addTo(state.layerZones);
-    });
+    const g=priorityGrid(s);
+    if(g){
+      g.cells.forEach(c=>L.rectangle(c.b,{color:'#fff',weight:.4,opacity:.35,fillColor:PRIO_COL[c.prio],fillOpacity:.55})
+        .bindTooltip('Score interpolé ≈ '+c.score+'/100 — '+PRIO_TXT[c.prio]).addTo(state.layerZones));
+      g.zones.forEach(o=>L.rectangle(zoneBounds(o.z),{color:'#fff',weight:2,dashArray:'5 4',fill:false})
+        .bindPopup('<b>'+o.n+'. '+esc(o.z.label)+'</b><br>'+PRIO_TXT[o.z.diag.priority]+'<br>Classe '+o.z.diag.cls+' — score mesuré '+o.z.diag.score+'/100<br>'+(Number.isFinite(o.z.area)?nf(o.z.area)+' m²':'')).addTo(state.layerZones));
+    }
   });
   updateBaseNote();
   const sw=(c,t)=>'<span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px"><span style="width:12px;height:12px;background:'+c+';display:inline-block;border-radius:2px"></span>'+t+'</span>';
   $('mapLegend').innerHTML='<b>Légende :</b> '+[1,2,3,4].map(k=>sw(PRIO_COL[k],PRIO_TXT[k])).join('')+sw('#1e88e5','Réseau hydrographique (si importé)')+sw('#5c4c3d','Zone minière (si importée)')+
-    '<br>Priorités issues des indicateurs saisis, non d\'une analyse d\'image. Carré à la surface déclarée de la zone : position et forme schématiques, pas un levé.';
+    '<br>Chaque cellule affiche un score <b>interpolé</b> à partir des micro-zones saisies (contours blancs en tirets) : ce n\'est ni une mesure, ni une analyse d\'image. Sans polygone « mine » importé, l\'étendue est approximative.';
 }
 window.addEventListener('load',()=>{ $('geoFile').addEventListener('change',e=>{ if(e.target.files[0]) importGeo(e.target.files[0]); e.target.value=''; }); });
 
