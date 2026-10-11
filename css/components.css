@@ -2,6 +2,8 @@
 .app{display:flex;min-height:100vh;background:var(--cream)}
 .side{width:250px;flex:0 0 250px;background:var(--ink);color:#fff;padding:20px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:18px}
 .brand{display:flex;gap:10px;align-items:center;padding:4px 8px}.logo{width:36px;height:36px;border-radius:50%;background:var(--gold);color:var(--ink);display:grid;place-items:center;font-weight:800}
+.brand .brand-logo{width:50px;height:50px;flex:0 0 50px;border-radius:0;background:transparent;display:flex;align-items:center;justify-content:center}
+.brand-logo img{display:block;width:100%;height:auto}
 .brand b{letter-spacing:.06em;display:block}.brand small{font-size:10px;color:#aaa;display:block;line-height:1.3}
 .nav{display:grid;gap:3px;overflow:auto}.nav button{border:0;background:none;color:#cfcac0;text-align:left;padding:10px 12px;border-radius:var(--pill);display:flex;gap:10px;align-items:center;width:100%}
 .nav button:hover{background:#2a2a2a;color:#fff}.nav button[aria-current="page"]{background:var(--gold);color:var(--ink);font-weight:700}
@@ -32,7 +34,7 @@
 .score{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.gauge{width:112px;height:112px}.verdict b{font-size:24px;display:block}.verdict .lbl{font-size:12px;color:var(--muted)}
 .tagline{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--pill);padding:4px 12px;font-size:12px;margin-top:8px}.tagline i{width:8px;height:8px;border-radius:50%}
 .pill{display:inline-block;padding:3px 10px;border-radius:var(--pill);background:var(--cream);border:1px solid var(--line);font-weight:700;font-size:11px}
-.pill.p1{background:#fbe7e4;color:#7a2a21}.pill.p2{background:#fde9d6;color:#8a4a12}.pill.p3{background:#fff3d6;color:#7a5d0b}.pill.p4{background:#e3f1e8;color:#2c5d41}
+.pill.p1{background:var(--p1);border-color:var(--p1);color:#fff}.pill.p2{background:var(--p2);border-color:var(--p2);color:#1a1a1a}.pill.p3{background:var(--p3);border-color:var(--p3);color:#1a1a1a}.pill.p4{background:var(--p4);border-color:var(--p4);color:#fff}
 .dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px;margin:0}.dl dt{color:var(--muted);font-weight:600}.dl dd{margin:0}
 .stack{display:grid;gap:12px}.step{display:grid;grid-template-columns:34px 1fr;gap:12px;border:1px solid var(--line);border-radius:var(--r-s);padding:12px}
 .step .n{width:34px;height:34px;border-radius:50%;background:var(--gold);display:grid;place-items:center;font-weight:700}.step h3{margin:0 0 3px}.step p{margin:0;color:var(--muted);font-size:12.5px}.step .when{font-size:11px;color:var(--muted-2);margin-top:5px}
@@ -51,3 +53,7 @@
 .stepbar button{flex:1;min-width:92px;border:1px solid var(--line);background:var(--white);border-radius:var(--pill);padding:8px 12px;display:flex;gap:8px;align-items:center;justify-content:center;font-weight:600;font-size:12px}
 .stepbar b{width:22px;height:22px;border-radius:50%;background:var(--cream);display:grid;place-items:center;font-size:11px}
 .stepbar button.done b{background:var(--gold)}.stepbar button:hover{border-color:var(--gold)}
+/* Carte thématique : fond blanc, légende, flèche du nord */
+.map,.leaflet-container{background:#fff}
+.maplegend{background:#fff;border:1px solid var(--ink);padding:8px 10px;font:11px/1.6 var(--font);color:var(--ink)}
+.northarrow{background:#fff;border:1px solid var(--ink);border-radius:6px;padding:4px 9px;text-align:center;font-weight:700;line-height:1.1;color:var(--ink)}

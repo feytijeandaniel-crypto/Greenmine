@@ -50,15 +50,25 @@ function within6(p){
   const m=/Mois (\d+)(?: à (\d+))?/.exec(p); if(m) return +(m[2]||m[1])<=6;
   return /Semaines?|Immédiat/.test(p)?true:null;
 }
-/* Carte schématique des zones par priorité (pas un levé SIG) pour le plan et le rapport. */
+/* Carte de priorisation du rapport : même grille interpolée que la carte de l'application (schématique). */
 function reportMapSVG(s){
-  const zs=s.zones.map((z,i)=>({z,i})).filter(o=>Number.isFinite(o.z.lat));
-  if(!zs.length) return '<h3>Carte de priorisation</h3><p class="muted">Aucune micro-zone géolocalisée : carte non générée.</p>';
-  const la0=zs[0].z.lat, lo0=zs[0].z.lon, k=Math.cos(la0*Math.PI/180)*111320;
-  const R=zs.map(o=>{const h=Math.sqrt(Math.max(o.z.area||500,1))/2,x=(o.z.lon-lo0)*k,y=-(o.z.lat-la0)*111320;return{o,x0:x-h,x1:x+h,y0:y-h,y1:y+h};});
-  const X0=Math.min(...R.map(r=>r.x0)),X1=Math.max(...R.map(r=>r.x1)),Y0=Math.min(...R.map(r=>r.y0)),Y1=Math.max(...R.map(r=>r.y1));
+  const pp=priorityPolys(s);
+  if(pp.length){
+    const lo0=pp[0].rings[0][0][0], la0=pp[0].rings[0][0][1], k=Math.cos(la0*Math.PI/180)*111320;
+    const pj=r=>r.map(q=>[(q[0]-lo0)*k,-(q[1]-la0)*111320]);
+    let a=1e18,b=-1e18,c=1e18,d=-1e18; pp.forEach(o=>o.rings.forEach(r=>pj(r).forEach(q=>{a=Math.min(a,q[0]);b=Math.max(b,q[0]);c=Math.min(c,q[1]);d=Math.max(d,q[1]);})));
+    const sc=Math.min(520/(b-a||1),340/(d-c||1));
+    const paths=pp.map(o=>'<path d="'+o.rings.map(r=>'M'+pj(r).map(q=>((q[0]-a)*sc+20).toFixed(1)+' '+((q[1]-c)*sc+20).toFixed(1)).join('L')+'Z').join('')+'" fill="'+PRIO_COL[o.prio]+'" fill-rule="evenodd"/>').join('');
+    const lg=[4,3,2,1].map(p=>'<span style="margin-right:14px"><span style="display:inline-block;width:11px;height:11px;background:'+PRIO_COL[p]+'"></span> '+PRIO_TXT[p]+'</span>').join('');
+    return '<h3>Carte de priorisation</h3><svg viewBox="0 0 '+((b-a)*sc+40).toFixed(0)+' '+((d-c)*sc+40).toFixed(0)+'" style="max-width:100%;width:560px;background:#fff;border:1px solid #ddd" role="img" aria-label="Carte de priorisation">'+paths+'</svg><p>'+lg+'</p><p class="muted">Polygones de priorité importés (GeoJSON) ; fond blanc, sans imagerie satellite.</p>';
+  }
+  const g=priorityGrid(s);
+  if(!g) return '<h3>Carte de priorisation</h3><p class="muted">Aucune micro-zone géolocalisée : carte non générée.</p>';
+  const C=g.cells; if(!C.length) return '<h3>Carte de priorisation</h3><p class="muted">Aucune cellule générée.</p>';
+  const X0=Math.min(...C.map(c=>c.x0)),X1=Math.max(...C.map(c=>c.x1)),Y0=Math.min(...C.map(c=>-c.y1)),Y1=Math.max(...C.map(c=>-c.y0));
   const sc=Math.min(520/(X1-X0||1),340/(Y1-Y0||1)), W=(X1-X0)*sc+40, H=(Y1-Y0)*sc+40;
-  const rects=R.map(r=>'<rect x="'+((r.x0-X0)*sc+20).toFixed(1)+'" y="'+((r.y0-Y0)*sc+20).toFixed(1)+'" width="'+((r.x1-r.x0)*sc).toFixed(1)+'" height="'+((r.y1-r.y0)*sc).toFixed(1)+'" fill="'+PRIO_COL[r.o.z.diag.priority]+'" fill-opacity=".75" stroke="#fff"/><text x="'+(((r.x0+r.x1)/2-X0)*sc+20).toFixed(1)+'" y="'+(((r.y0+r.y1)/2-Y0)*sc+24).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="700" fill="#111">'+(r.o.i+1)+'</text>').join('');
-  const leg=[1,2,3,4].map(p=>'<span style="margin-right:14px"><span style="display:inline-block;width:11px;height:11px;background:'+PRIO_COL[p]+'"></span> '+PRIO_TXT[p]+'</span>').join('');
-  return '<h3>Carte de priorisation (schématique)</h3><svg viewBox="0 0 '+W.toFixed(0)+' '+H.toFixed(0)+'" style="max-width:100%;width:'+Math.min(W,560).toFixed(0)+'px;background:#f1efe8;border-radius:8px" role="img" aria-label="Carte de priorisation">'+rects+'</svg><p>'+leg+'</p><p class="muted">Numéros = ordre des micro-zones saisies. Priorités issues des indicateurs saisis, non d\'une analyse d\'image. Carré à la surface déclarée, position approximative : pas un levé SIG.</p>';
+  const rects=C.map(c=>'<rect x="'+((c.x0-X0)*sc+20).toFixed(1)+'" y="'+((-c.y1-Y0)*sc+20).toFixed(1)+'" width="'+((c.x1-c.x0)*sc+.3).toFixed(1)+'" height="'+((c.y1-c.y0)*sc+.3).toFixed(1)+'" fill="'+PRIO_COL[c.prio]+'" fill-opacity=".8"/>').join('');
+  const lab=g.zones.map(o=>'<text x="'+((o.x-X0)*sc+20).toFixed(1)+'" y="'+((-o.y-Y0)*sc+24).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#111" stroke="#fff" stroke-width="3" paint-order="stroke">'+o.n+'</text>').join('');
+  const leg=[4,3,2,1].map(p=>'<span style="margin-right:14px"><span style="display:inline-block;width:11px;height:11px;background:'+PRIO_COL[p]+'"></span> '+PRIO_TXT[p]+'</span>').join('');
+  return '<h3>Carte de priorisation (schématique)</h3><svg viewBox="0 0 '+W.toFixed(0)+' '+H.toFixed(0)+'" style="max-width:100%;width:'+Math.min(W,560).toFixed(0)+'px;background:#f1efe8;border-radius:8px" role="img" aria-label="Carte de priorisation">'+rects+lab+'</svg><p>'+leg+'</p><p class="muted">Numéros = micro-zones saisies. Scores des cellules interpolés à partir de ces zones : ni mesure, ni analyse d\'image, pas un levé SIG.'+(g.clipped?' Découpée par la zone minière importée.':' Étendue approximative.')+'</p>';
 }

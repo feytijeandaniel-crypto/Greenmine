@@ -8,7 +8,7 @@
 
 <aside class="side">
   <div class="brand">
-    <div class="logo" aria-hidden="true">G</div>
+    <a class="logo brand-logo" href="#top"><img src="assets/logo/GREENMINE_logo_dark-removebg-preview.png" alt="" width="50"></a>
     <div><b>GREENMINE</b><small>Intelligence environnementale</small></div>
   </div>
   <nav class="nav" id="nav" aria-label="Navigation principale">
@@ -187,9 +187,12 @@
 <!-- ================= CARTE ================= -->
 <section id="cartographie" class="section" aria-label="Carte de priorisation">
   <div class="hero">
-    <div><h1>Carte de priorisation</h1><p>Micro-zones colorées par niveau de priorité de réhabilitation. Représentation schématique tant qu'aucune couche SIG réelle n'est importée.</p></div>
+    <div><h1>Carte de priorisation</h1><p>Carte thématique sur fond blanc : aplats colorés par niveau de dégradation, du rouge (à traiter en premier) au vert. Sans polygones SIG importés, les aplats sont interpolés à partir des micro-zones saisies. Pour des contours réels, importez un GeoJSON avec la propriété priority (1 à 4).</p></div>
     <div class="actions">
-      <button class="btn" onclick="fitAll()">Cadrer</button><input id="geoFile" type="file" accept=".geojson,.json" hidden><button class="btn" onclick="document.getElementById('geoFile').click()">Importer des couches SIG (GeoJSON)</button>
+      <button id="modeZones" class="btn primary" onclick="setMapMode('zones')">Priorité (zones saisies)</button>
+      <button class="btn" onclick="fitAll()">Cadrer</button>
+      <input id="geoFile" type="file" accept=".geojson,.json" hidden>
+      <button class="btn" onclick="document.getElementById('geoFile').click()">Importer des couches SIG (GeoJSON)</button>
       <button class="btn primary" onclick="downloadMap()">Exporter la carte en image</button>
     </div>
   </div>
@@ -312,5 +315,6 @@
 <script src="js/images.js"></script>
 <script src="js/laboratoire.js"></script>
 <script src="js/plan.js"></script>
+<script src="js/capteurs.js"></script>
 <script src="js/app.js"></script>
 </body></html>
